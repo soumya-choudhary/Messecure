@@ -7,11 +7,15 @@ const userSchema = new mongoose.Schema(
             required: true,
             unique: true,
         },
-
+        username: {
+            type: String,
+            required: true,
+            unique: true,
+            minlength: 3,
+        },
         fullName: {
             type: String,
             required: true,
-
         },
         password: {
             type: String,
@@ -21,6 +25,41 @@ const userSchema = new mongoose.Schema(
         profilePic: {
             type: String,
             default: "",
+        },
+        bio: {
+            type: String,
+            default: "",
+        },
+        friends: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+        }],
+        friendRequests: [{
+            senderId: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "User",
+            },
+            status: {
+                type: String,
+                enum: ["pending", "accepted", "rejected"],
+                default: "pending",
+            },
+            createdAt: {
+                type: Date,
+                default: Date.now,
+            },
+        }],
+        blockedUsers: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+        }],
+        privateMessaging: {
+            type: Boolean,
+            default: false, // if true, only friends can message
+        },
+        lastSeen: {
+            type: Date,
+            default: Date.now,
         },
     },
 
