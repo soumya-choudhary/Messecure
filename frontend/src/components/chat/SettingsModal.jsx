@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Bell, Moon, Shield, Trash2 } from 'lucide-react';
+import { X, Bell, Moon, Shield, Trash2, Languages } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const SettingsModal = ({ isOpen, onClose, user }) => {
@@ -7,7 +7,12 @@ const SettingsModal = ({ isOpen, onClose, user }) => {
     notifications: localStorage.getItem('chat_notifications') !== 'false',
     darkMode: localStorage.getItem('chat_dark_mode') === 'true',
     readReceipts: localStorage.getItem('chat_read_receipts') !== 'false',
+    autoTranslate: localStorage.getItem('chat_auto_translate') === 'true',
+    translateOutgoing: localStorage.getItem('chat_translate_outgoing') === 'true',
   });
+  const [translateLanguage, setTranslateLanguage] = useState(
+    localStorage.getItem('chat_translate_language') || 'English'
+  );
 
   const toggle = (key, storageKey) => {
     const next = !settings[key];
@@ -20,6 +25,9 @@ const SettingsModal = ({ isOpen, onClose, user }) => {
     localStorage.removeItem('chat_notifications');
     localStorage.removeItem('chat_dark_mode');
     localStorage.removeItem('chat_read_receipts');
+    localStorage.removeItem('chat_auto_translate');
+    localStorage.removeItem('chat_translate_outgoing');
+    localStorage.removeItem('chat_translate_language');
     toast.success('Local preferences cleared');
   };
 
@@ -47,6 +55,8 @@ const SettingsModal = ({ isOpen, onClose, user }) => {
             { key: 'notifications', label: 'Message notifications', icon: Bell, storage: 'chat_notifications' },
             { key: 'darkMode', label: 'Dark mode (coming soon)', icon: Moon, storage: 'chat_dark_mode' },
             { key: 'readReceipts', label: 'Read receipts', icon: Shield, storage: 'chat_read_receipts' },
+            { key: 'autoTranslate', label: 'Auto-translate incoming messages', icon: Languages, storage: 'chat_auto_translate' },
+            { key: 'translateOutgoing', label: 'Translate outgoing messages to English', icon: Languages, storage: 'chat_translate_outgoing' },
           ].map(({ key, label, icon: Icon, storage }) => (
             <button
               key={key}
@@ -70,6 +80,29 @@ const SettingsModal = ({ isOpen, onClose, user }) => {
               </div>
             </button>
           ))}
+
+          <div className="p-3 rounded-xl bg-[#f0f2f5]">
+            <label className="text-sm text-[#111b21] font-medium block mb-2">
+              Your preferred language (for translations)
+            </label>
+            <select
+              value={translateLanguage}
+              onChange={(e) => {
+                setTranslateLanguage(e.target.value);
+                localStorage.setItem('chat_translate_language', e.target.value);
+                toast.success('Language updated');
+              }}
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white"
+            >
+              {['English', 'Spanish', 'Hindi', 'French', 'German', 'Portuguese', 'Arabic', 'Chinese', 'Japanese'].map(
+                (lang) => (
+                  <option key={lang} value={lang}>
+                    {lang}
+                  </option>
+                )
+              )}
+            </select>
+          </div>
 
           <button
             onClick={clearLocalData}

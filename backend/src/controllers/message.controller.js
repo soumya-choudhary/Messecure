@@ -2,6 +2,11 @@ import cloudinary from "../lib/cloudinary.js";
 import Message from "../models/message.model.js";
 import User from "../models/user.model.js";
 import { getReceiverSocketId, io } from "../lib/socket.js";
+import {
+  summarizeChat,
+  generateSmartReplies,
+  translateMessageText,
+} from "../services/gemini.service.js";
 
 export const getAllContacts = async (req, res) => {
   try {
@@ -280,5 +285,129 @@ export const deleteMessage = async (req, res) => {
   } catch (error) {
     console.error("Error in deleteMessage:", error);
     res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// --- AI Features ---
+
+const formatMessagesForAI = (messages, myId) =>
+  messages.map((m) => ({
+    senderName:
+      m.senderId?.fullName || (m.senderId?.toString() === myId.toString() ? "You" : "User"),
+    text: m.text || "[Image]",
+    role: m.senderId?.toString() === myId.toString() ? "current user" : "chat partner",
+  }));
+
+export const getChatSummary = async (req, res) => {
+  try {
+    const { partnerId } = req.params;
+    const myId = req.user._id;
+
+    const messages = await Message.find({
+      $or: [
+        { senderId: myId, receiverId: partnerId },
+        { senderId: partnerId, receiverId: myId },
+      ],
+      deletedBy: { $nin: [myId] },
+    })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .populate("senderId", "fullName");
+
+    messages.reverse();
+
+    if (messages.length === 0) {
+      return res.status(200).json({ summary: "No messages to summarize yet." });
+    }
+
+    const formatted = formatMessagesForAI(messages, myId);
+    const summary = await summarizeChat(formatted);
+    res.status(200).json({ summary });
+  } catch (error) {
+    console.error("Summarization failed:", error.message);
+    res.status(500).json({
+      message: error.message?.includes("429")
+        ? "AI is busy. Please try again in a moment."
+        : "Failed to summarize chat",
+    });
+  }
+};
+
+export const getSmartReplies = async (req, res) => {
+  try {
+    const { partnerId } = req.params;
+    const myId = req.user._id;
+
+    const messages = await Message.find({
+      $or: [
+        { senderId: myId, receiverId: partnerId },
+        { senderId: partnerId, receiverId: myId },
+      ],
+      deletedBy: { $nin: [myId] },
+    })
+      .sort({ createdAt: -1 })
+      .limit(8);
+
+    messages.reverse();
+
+    const lastMsg = messages[messages.length - 1];
+    if (!lastMsg || lastMsg.senderId.toString() === myId.toString()) {
+      return res.status(200).json({ replies: [] });
+    }
+
+    const context = formatMessagesForAI(messages, myId);
+    const replies = await generateSmartReplies(context);
+    res.status(200).json({ replies });
+  } catch (error) {
+    console.error("Smart replies failed:", error.message);
+    res.status(500).json({
+      message: error.message?.includes("429")
+        ? "AI is busy. Please try again in a moment."
+        : "Failed to generate replies",
+      replies: [],
+    });
+  }
+};
+
+export const translateMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const { targetLanguage, text: bodyText } = req.body;
+    const target = targetLanguage || "English";
+
+    let textToTranslate = bodyText;
+    if (!textToTranslate) {
+      const message = await Message.findById(messageId);
+      if (!message?.text) {
+        return res.status(400).json({ message: "No text to translate" });
+      }
+      textToTranslate = message.text;
+    }
+
+    const translatedText = await translateMessageText(textToTranslate, target);
+    res.status(200).json({ translatedText, targetLanguage: target });
+  } catch (error) {
+    console.error("Translation failed:", error.message);
+    res.status(500).json({
+      message: error.message?.includes("429")
+        ? "AI is busy. Please try again in a moment."
+        : "Failed to translate",
+    });
+  }
+};
+
+export const translateText = async (req, res) => {
+  try {
+    const { text, targetLanguage } = req.body;
+    if (!text?.trim()) {
+      return res.status(400).json({ message: "Text is required" });
+    }
+
+    const target = targetLanguage || "English";
+    const translatedText = await translateMessageText(text.trim(), target);
+    res.status(200).json({ translatedText, targetLanguage: target });
+  } catch (error) {
+    console.error("Text translation failed:", error.message);
+    res.status(500).json({ message: "Failed to translate text" });
   }
 };

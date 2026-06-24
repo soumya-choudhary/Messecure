@@ -2,6 +2,7 @@ import GroupChat from "../models/groupchat.model.js";
 import Message from "../models/message.model.js";
 import cloudinary from "../lib/cloudinary.js";
 import { getReceiverSocketId, io } from "../lib/socket.js";
+import { summarizeChat, generateSmartReplies } from "../services/gemini.service.js";
 
 // Create group chat
 export const createGroupChat = async (req, res) => {
@@ -318,5 +319,67 @@ export const leaveGroup = async (req, res) => {
   } catch (error) {
     console.error("Error in leaveGroup:", error);
     res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getGroupSummary = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const myId = req.user._id;
+
+    const messages = await Message.find({ groupChatId: groupId })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .populate("senderId", "fullName");
+
+    messages.reverse();
+
+    if (messages.length === 0) {
+      return res.status(200).json({ summary: "No messages to summarize yet." });
+    }
+
+    const formatted = messages.map((m) => ({
+      senderName: m.senderId?.fullName || "User",
+      text: m.text || "[Image]",
+    }));
+
+    const summary = await summarizeChat(formatted);
+    res.status(200).json({ summary });
+  } catch (error) {
+    console.error("Group summarization failed:", error.message);
+    res.status(500).json({
+      message: error.message?.includes("429")
+        ? "AI is busy. Please try again in a moment."
+        : "Failed to summarize group chat",
+    });
+  }
+};
+
+export const getGroupSmartReplies = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const myId = req.user._id;
+
+    const messages = await Message.find({ groupChatId: groupId })
+      .sort({ createdAt: -1 })
+      .limit(8);
+
+    messages.reverse();
+
+    const lastMsg = messages[messages.length - 1];
+    if (!lastMsg || lastMsg.senderId.toString() === myId.toString()) {
+      return res.status(200).json({ replies: [] });
+    }
+
+    const context = messages.map((m) => ({
+      role: m.senderId.toString() === myId.toString() ? "current user" : "chat partner",
+      text: m.text || "[Image]",
+    }));
+
+    const replies = await generateSmartReplies(context);
+    res.status(200).json({ replies });
+  } catch (error) {
+    console.error("Group smart replies failed:", error.message);
+    res.status(500).json({ replies: [], message: "Failed to generate replies" });
   }
 };

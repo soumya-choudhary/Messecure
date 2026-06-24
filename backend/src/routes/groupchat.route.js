@@ -10,6 +10,8 @@ import {
   getGroupMessages,
   sendGroupMessage,
   leaveGroup,
+  getGroupSummary,
+  getGroupSmartReplies,
 } from "../controllers/groupchat.controller.js";
 import { protectRoute } from "../middleware/auth.middleware.js";
 
@@ -25,6 +27,8 @@ router.post("/:groupId/remove-member", removeMemberFromGroup);
 router.put("/:groupId/update", updateGroupDetails);
 router.delete("/:groupId", deleteGroupChat);
 router.get("/:groupId/messages", getGroupMessages);
+router.get("/:groupId/summarize", getGroupSummary);
+router.get("/:groupId/smart-replies", getGroupSmartReplies);
 router.post("/:groupId/send-message", sendGroupMessage);
 router.post("/:groupId/leave", leaveGroup);
 

@@ -8,6 +8,7 @@ import {
   X,
   UserMinus,
   ImageIcon,
+  Sparkles, // Added for the Summarize icon
 } from 'lucide-react';
 import useChatStore from '../../store/chatStore';
 import api from '../../lib/api';
@@ -16,6 +17,16 @@ import toast from 'react-hot-toast';
 
 const DEFAULT_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 const INPUT_EMOJIS = ['😀', '😂', '😍', '🥰', '😊', '👍', '❤️', '🔥', '🎉', '✨', '🙏', '😢'];
+
+const getTargetLanguage = () => {
+  const stored = localStorage.getItem('chat_translate_language');
+  if (stored) return stored;
+  const code = (navigator.language || 'en').split('-')[0];
+  const map = { en: 'English', es: 'Spanish', hi: 'Hindi', fr: 'French', de: 'German', pt: 'Portuguese', ar: 'Arabic', zh: 'Chinese', ja: 'Japanese' };
+  return map[code] || 'English';
+};
+
+const isAutoTranslateEnabled = () => localStorage.getItem('chat_auto_translate') === 'true';
 
 const ChatArea = ({ socket, onRefreshGroups, onRefreshChatPartners }) => {
   const {
@@ -36,6 +47,13 @@ const ChatArea = ({ socket, onRefreshGroups, onRefreshChatPartners }) => {
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [reactingTo, setReactingTo] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+
+  // --- NEW AI FEATURE STATES ---
+  const [smartReplies, setSmartReplies] = useState([]);
+  const [translations, setTranslations] = useState({});
+  const [isSummarizing, setIsSummarizing] = useState(false);
+  // -----------------------------
+
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const menuRef = useRef(null);
@@ -44,8 +62,13 @@ const ChatArea = ({ socket, onRefreshGroups, onRefreshChatPartners }) => {
   const isGroup = selectedChat?.type === 'group';
   const chatMessages = messages[chatId] || [];
 
+  const getSenderId = (msg) => msg.senderId?._id?.toString() || msg.senderId?.toString();
+
   useEffect(() => {
     if (!selectedChat) return;
+
+    setSmartReplies([]);
+    setTranslations({});
 
     if (selectedChat.type === 'user') {
       fetchMessages(selectedChat.id);
@@ -97,6 +120,62 @@ const ChatArea = ({ socket, onRefreshGroups, onRefreshChatPartners }) => {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
+  // Fetch smart replies when partner sends the last message
+  const lastMessage = chatMessages[chatMessages.length - 1];
+  const lastMessageId = lastMessage?._id;
+
+  useEffect(() => {
+    if (!selectedChat || !lastMessageId || chatMessages.length === 0) {
+      setSmartReplies([]);
+      return;
+    }
+
+    if (getSenderId(lastMessage) === user?._id?.toString()) {
+      setSmartReplies([]);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const url = isGroup
+          ? `/groups/${selectedChat.id}/smart-replies`
+          : `/messages/${selectedChat.id}/smart-replies`;
+        const res = await api.get(url);
+        if (!cancelled) setSmartReplies(res.data.replies || []);
+      } catch {
+        if (!cancelled) setSmartReplies([]);
+      }
+    }, 800);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [selectedChat?.id, selectedChat?.type, lastMessageId, user?._id, isGroup]);
+
+  // Auto-translate incoming messages when enabled
+  useEffect(() => {
+    if (!isAutoTranslateEnabled() || !lastMessage?.text) return;
+    if (getSenderId(lastMessage) === user?._id?.toString()) return;
+    if (translations[lastMessageId]) return;
+
+    const autoTranslate = async () => {
+      try {
+        const res = await api.post(`/messages/${lastMessageId}/translate`, {
+          targetLanguage: getTargetLanguage(),
+        });
+        setTranslations((prev) => ({
+          ...prev,
+          [lastMessageId]: { text: res.data.translatedText, original: lastMessage.text },
+        }));
+      } catch {
+        // silent fail for auto-translate
+      }
+    };
+    autoTranslate();
+  }, [lastMessageId]);
+
   const fetchMessages = async (id) => {
     try {
       const res = await api.get(`/messages/${id}`);
@@ -130,8 +209,27 @@ const ChatArea = ({ socket, onRefreshGroups, onRefreshChatPartners }) => {
 
     setLoading(true);
     try {
+      let textToSend = messageText.trim() || undefined;
+
+      // Translate outgoing message for recipient when enabled (DM only)
+      if (
+        textToSend &&
+        !isGroup &&
+        localStorage.getItem('chat_translate_outgoing') === 'true'
+      ) {
+        try {
+          const tr = await api.post('/messages/translate-text', {
+            text: textToSend,
+            targetLanguage: 'English',
+          });
+          textToSend = tr.data.translatedText;
+        } catch {
+          // send original if translation fails
+        }
+      }
+
       const payload = {
-        text: messageText.trim() || undefined,
+        text: textToSend,
         image: imagePreview || undefined,
       };
 
@@ -145,6 +243,7 @@ const ChatArea = ({ socket, onRefreshGroups, onRefreshChatPartners }) => {
       addMessage(selectedChat.id, response.data);
       setMessageText('');
       setImagePreview(null);
+      setSmartReplies([]); // Clear smart replies after sending
       onRefreshGroups?.();
       onRefreshChatPartners?.();
     } catch (e) {
@@ -191,7 +290,52 @@ const ChatArea = ({ socket, onRefreshGroups, onRefreshChatPartners }) => {
 
   const handleCloseChat = () => setSelectedChat(null);
 
-  const getSenderId = (msg) => msg.senderId?._id?.toString() || msg.senderId?.toString();
+  // --- NEW AI HANDLERS: Summarize & Translate ---
+  const handleSummarize = async () => {
+    setIsSummarizing(true);
+    setShowMenu(false);
+    const loadingToast = toast.loading('Summarizing chat...');
+
+    try {
+      const url = isGroup
+        ? `/groups/${selectedChat.id}/summarize`
+        : `/messages/${selectedChat.id}/summarize`;
+      const res = await api.get(url);
+      toast.success(res.data.summary, { id: loadingToast, duration: 10000 });
+    } catch (e) {
+      const msg = e.response?.data?.message || 'Failed to summarize chat';
+      toast.error(msg, { id: loadingToast });
+    } finally {
+      setIsSummarizing(false);
+    }
+  };
+
+  const handleTranslate = async (messageId, originalText) => {
+    if (translations[messageId]) {
+      setTranslations((prev) => {
+        const next = { ...prev };
+        delete next[messageId];
+        return next;
+      });
+      return;
+    }
+
+    const loadingToast = toast.loading('Translating...');
+    try {
+      const res = await api.post(`/messages/${messageId}/translate`, {
+        targetLanguage: getTargetLanguage(),
+      });
+      setTranslations((prev) => ({
+        ...prev,
+        [messageId]: { text: res.data.translatedText, original: originalText },
+      }));
+      toast.dismiss(loadingToast);
+    } catch (e) {
+      const msg = e.response?.data?.message || 'Translation failed';
+      toast.error(msg, { id: loadingToast });
+    }
+  };
+  // ----------------------------------------------
 
   if (!selectedChat) {
     return (
@@ -257,6 +401,17 @@ const ChatArea = ({ socket, onRefreshGroups, onRefreshChatPartners }) => {
               >
                 <ImageIcon className="w-4 h-4" /> View profile photo
               </button>
+
+              {/* NEW AI FEATURE: Summarize Chat Button */}
+              <button
+                onClick={handleSummarize}
+                disabled={isSummarizing || chatMessages.length === 0}
+                className="w-full px-4 py-2.5 text-left text-sm text-[#111b21] hover:bg-[#f0f2f5] flex items-center gap-2 disabled:opacity-50"
+              >
+                <Sparkles className="w-4 h-4 text-[#00a884]" />
+                {isSummarizing ? 'Summarizing...' : 'Summarize Chat'}
+              </button>
+
               {!isGroup && (
                 <button
                   onClick={handleRemoveFriend}
@@ -309,15 +464,38 @@ const ChatArea = ({ socket, onRefreshGroups, onRefreshChatPartners }) => {
                       <p className="text-xs text-[#667781] mb-0.5 ml-1">{senderName}</p>
                     )}
                     <div
-                      className={`rounded-lg px-3 py-1.5 shadow-sm ${
-                        isOwn
-                          ? 'bg-[#d9fdd3] text-[#111b21] rounded-tr-none'
-                          : 'bg-white text-[#111b21] rounded-tl-none'
-                      }`}
+                      className={`rounded-lg px-3 py-1.5 shadow-sm ${isOwn
+                        ? 'bg-[#d9fdd3] text-[#111b21] rounded-tr-none'
+                        : 'bg-white text-[#111b21] rounded-tl-none'
+                        }`}
                     >
+                      {/* NEW AI FEATURE: Translation Display */}
                       {message.text && (
-                        <p className="text-sm whitespace-pre-wrap break-words">{message.text}</p>
+                        <div className="group/text relative">
+                          {translations[message._id] ? (
+                            <>
+                              <p className="text-sm whitespace-pre-wrap break-words">
+                                {translations[message._id].text}
+                              </p>
+                              <p className="text-[10px] text-[#667781] mt-1 italic opacity-80">
+                                {translations[message._id].original}
+                              </p>
+                            </>
+                          ) : (
+                            <p className="text-sm whitespace-pre-wrap break-words">{message.text}</p>
+                          )}
+
+                          {!isOwn && message.text && (
+                            <button
+                              onClick={() => handleTranslate(message._id, message.text)}
+                              className="text-[10px] text-[#00a884] mt-1 font-medium hover:underline block"
+                            >
+                              {translations[message._id] ? 'Show original' : `Translate to ${getTargetLanguage()}`}
+                            </button>
+                          )}
+                        </div>
                       )}
+
                       {message.image && (
                         <img
                           src={message.image}
@@ -385,6 +563,25 @@ const ChatArea = ({ socket, onRefreshGroups, onRefreshChatPartners }) => {
           >
             Remove
           </button>
+        </div>
+      )}
+
+      {/* NEW AI FEATURE: Smart Replies UI */}
+      {smartReplies.length > 0 && (
+        <div className="px-3 pt-2 pb-1 bg-[#f0f2f5] flex gap-2 overflow-x-auto no-scrollbar border-t border-[#e9edef]">
+          <Sparkles className="w-5 h-5 text-[#00a884] flex-shrink-0 self-center ml-1" />
+          {smartReplies.map((reply, idx) => (
+            <button
+              key={idx}
+              onClick={() => {
+                setMessageText(reply);
+                setSmartReplies([]); // clear after clicking
+              }}
+              className="px-4 py-1.5 bg-white border border-[#e9edef] rounded-full text-sm text-[#54656f] hover:bg-gray-50 whitespace-nowrap shadow-sm transition-colors"
+            >
+              {reply}
+            </button>
+          ))}
         </div>
       )}
 
