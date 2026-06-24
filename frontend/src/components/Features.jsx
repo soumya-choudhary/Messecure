@@ -67,10 +67,12 @@ const Features = () => {
 
     return (
         <section id="features" className="py-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-white via-gray-50 to-white relative overflow-hidden">
-            {/* Background Pattern */}
-            <div className="absolute inset-0 opacity-5">
-                <div className="absolute top-0 left-0 w-96 h-96 bg-blue-400 rounded-full blur-3xl"></div>
-                <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-400 rounded-full blur-3xl"></div>
+            {/* Background Pattern & Image */}
+            <div className="absolute inset-0 z-0 overflow-hidden">
+                <div className="absolute inset-0 bg-white/80 z-10 backdrop-blur-sm"></div>
+                <img src="/Image2.png" alt="Features Background" className="absolute w-full h-full object-cover opacity-60" />
+                <div className="absolute top-0 left-0 w-96 h-96 bg-blue-400 rounded-full blur-3xl opacity-30 z-20"></div>
+                <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-400 rounded-full blur-3xl opacity-30 z-20"></div>
             </div>
 
             <div className="max-w-7xl mx-auto relative z-10">

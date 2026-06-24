@@ -71,38 +71,13 @@ const About = () => {
                     </div>
 
                     {/* Right Visual */}
-                    <div className="relative">
-                        <div className="relative bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl p-8 shadow-2xl">
-                            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 space-y-4">
-                                <div className="flex items-center space-x-3">
-                                    <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                        </svg>
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="h-3 bg-white/30 rounded w-3/4 mb-2"></div>
-                                        <div className="h-2 bg-white/20 rounded w-1/2"></div>
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="h-4 bg-white/20 rounded w-full"></div>
-                                    <div className="h-4 bg-white/20 rounded w-5/6"></div>
-                                    <div className="h-4 bg-white/20 rounded w-4/6"></div>
-                                </div>
-                                <div className="flex items-center space-x-2 pt-4">
-                                    <div className="flex-1 h-10 bg-white/20 rounded-lg"></div>
-                                    <div className="w-10 h-10 bg-white/30 rounded-lg flex items-center justify-center">
-                                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                                        </svg>
-                                    </div>
-                                </div>
-                            </div>
+                    <div className="relative lg:ml-10 mt-10 lg:mt-0">
+                        <div className="relative rounded-3xl overflow-hidden shadow-2xl border-4 border-white">
+                            <img src="/Image1.png" alt="Messecure App Interface" className="w-full h-auto object-cover hover:scale-105 transition-transform duration-700" />
                         </div>
                         {/* Decorative Elements */}
-                        <div className="absolute -top-4 -right-4 w-24 h-24 bg-purple-200 rounded-full opacity-50 blur-2xl"></div>
-                        <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-blue-200 rounded-full opacity-50 blur-2xl"></div>
+                        <div className="absolute -top-6 -right-6 w-32 h-32 bg-purple-300 rounded-full opacity-60 blur-2xl -z-10"></div>
+                        <div className="absolute -bottom-6 -left-6 w-40 h-40 bg-blue-300 rounded-full opacity-60 blur-2xl -z-10"></div>
                     </div>
                 </div>
             </div>

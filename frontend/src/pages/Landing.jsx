@@ -23,12 +23,15 @@ const Landing = () => {
     useEffect(() => {
         // Smooth scroll for anchor links
         const handleAnchorClick = (e) => {
-            const href = e.target.getAttribute('href');
-            if (href && href.startsWith('#')) {
-                e.preventDefault();
-                const element = document.querySelector(href);
-                if (element) {
-                    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            const anchor = e.target.closest('a');
+            if (anchor) {
+                const href = anchor.getAttribute('href');
+                if (href && href.startsWith('#')) {
+                    e.preventDefault();
+                    const element = document.querySelector(href);
+                    if (element) {
+                        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
                 }
             }
         };

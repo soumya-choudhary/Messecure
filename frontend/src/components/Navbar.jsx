@@ -22,15 +22,15 @@ const Navbar = ({ onOpenAuthModal }) => {
 
                     {/* Desktop Navigation */}
                     <div className="hidden md:flex items-center space-x-8">
-                        <Link to="#features" className="text-gray-700 hover:text-blue-600 transition-colors font-medium">
+                        <a href="#features" className="text-gray-700 hover:text-blue-600 transition-colors font-medium">
                             Features
-                        </Link>
-                        <Link to="#about" className="text-gray-700 hover:text-blue-600 transition-colors font-medium">
+                        </a>
+                        <a href="#about" className="text-gray-700 hover:text-blue-600 transition-colors font-medium">
                             About
-                        </Link>
-                        <Link to="#contact" className="text-gray-700 hover:text-blue-600 transition-colors font-medium">
+                        </a>
+                        <a href="#contact" className="text-gray-700 hover:text-blue-600 transition-colors font-medium">
                             Contact
-                        </Link>
+                        </a>
                     </div>
 
                     {/* Auth Buttons */}
@@ -67,27 +67,27 @@ const Navbar = ({ onOpenAuthModal }) => {
                 {/* Mobile Menu */}
                 {isMenuOpen && (
                     <div className="md:hidden py-4 space-y-4 border-t border-gray-200">
-                        <Link
-                            to="#features"
+                        <a
+                            href="#features"
                             className="block px-4 py-2 text-gray-700 hover:text-blue-600 transition-colors"
                             onClick={() => setIsMenuOpen(false)}
                         >
                             Features
-                        </Link>
-                        <Link
-                            to="#about"
+                        </a>
+                        <a
+                            href="#about"
                             className="block px-4 py-2 text-gray-700 hover:text-blue-600 transition-colors"
                             onClick={() => setIsMenuOpen(false)}
                         >
                             About
-                        </Link>
-                        <Link
-                            to="#contact"
+                        </a>
+                        <a
+                            href="#contact"
                             className="block px-4 py-2 text-gray-700 hover:text-blue-600 transition-colors"
                             onClick={() => setIsMenuOpen(false)}
                         >
                             Contact
-                        </Link>
+                        </a>
                         <div className="pt-4 space-y-2 border-t border-gray-200">
                             <button
                                 onClick={() => {
