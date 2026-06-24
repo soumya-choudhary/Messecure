@@ -21,7 +21,7 @@ const storySchema = new mongoose.Schema(
       default: "",
     },
     viewedBy: [
-      {
+      { 
         userId: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "User",

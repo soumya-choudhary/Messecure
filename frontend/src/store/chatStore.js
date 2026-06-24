@@ -1,96 +1,86 @@
 import { create } from 'zustand';
 
 const useChatStore = create((set, get) => ({
-  // User data
   user: null,
   setUser: (user) => set({ user }),
 
-  // Chat state
-  selectedChat: null, // { type: 'user' | 'group', id: string, data: object }
+  selectedChat: null,
   setSelectedChat: (chat) => set({ selectedChat: chat }),
 
-  // Messages
+  activeView: 'chats',
+  setActiveView: (view) => set({ activeView: view }),
+
   messages: {},
   setMessages: (chatId, messages) =>
     set((state) => ({
       messages: { ...state.messages, [chatId]: messages },
     })),
   addMessage: (chatId, message) =>
+    set((state) => {
+      const existing = state.messages[chatId] || [];
+      if (existing.some((m) => m._id === message._id)) return state;
+      return {
+        messages: {
+          ...state.messages,
+          [chatId]: [...existing, message],
+        },
+      };
+    }),
+  updateMessage: (chatId, messageId, updates) =>
     set((state) => ({
       messages: {
         ...state.messages,
-        [chatId]: [...(state.messages[chatId] || []), message],
+        [chatId]: (state.messages[chatId] || []).map((m) =>
+          m._id === messageId ? { ...m, ...updates } : m
+        ),
       },
     })),
 
-  // Friends
   friends: [],
   setFriends: (friends) => set({ friends }),
 
-  // Friend requests
   friendRequests: [],
   setFriendRequests: (requests) => set({ friendRequests: requests }),
 
-  // Groups
   groups: [],
   setGroups: (groups) => set({ groups }),
 
-  // Stories
   stories: [],
   setStories: (stories) => set({ stories }),
 
-  // Chat partners (people you've messaged)
   chatPartners: [],
   setChatPartners: (partners) => set({ chatPartners: partners }),
 
-  // Folders
-  folders: [
-    { id: 'all', name: 'All Chats', icon: '💬', chats: [] },
-    { id: 'unread', name: 'Unread', icon: '📩', chats: [] },
-  ],
-  setFolders: (folders) => set({ folders }),
-  addFolder: (folder) =>
-    set((state) => ({
-      folders: [...state.folders, folder],
-    })),
-  updateFolder: (folderId, updates) =>
-    set((state) => ({
-      folders: state.folders.map((f) =>
-        f.id === folderId ? { ...f, ...updates } : f
-      ),
-    })),
-  deleteFolder: (folderId) =>
-    set((state) => ({
-      folders: state.folders.filter((f) => f.id !== folderId),
-    })),
+  unreadByChat: {},
+  setUnreadByChat: (counts) => set({ unreadByChat: counts }),
+  clearUnreadForChat: (chatId) =>
+    set((state) => {
+      const next = { ...state.unreadByChat };
+      delete next[chatId];
+      return { unreadByChat: next };
+    }),
 
-  // UI state
   sidebarOpen: false,
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
 
-  // Profile completion
   profileCompletion: 0,
   setProfileCompletion: (completion) => set({ profileCompletion: completion }),
 
-  // Reset
   reset: () =>
     set({
       user: null,
       selectedChat: null,
+      activeView: 'chats',
       messages: {},
       friends: [],
       friendRequests: [],
       groups: [],
       stories: [],
       chatPartners: [],
-      folders: [
-        { id: 'all', name: 'All Chats', icon: '💬', chats: [] },
-        { id: 'unread', name: 'Unread', icon: '📩', chats: [] },
-      ],
+      unreadByChat: {},
       sidebarOpen: false,
       profileCompletion: 0,
     }),
 }));
 
 export default useChatStore;
-

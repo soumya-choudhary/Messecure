@@ -27,9 +27,11 @@ export const getMessagesByUserId = async (req, res) => {
         { senderId: myId, receiverId: userToChatId },
         { senderId: userToChatId, receiverId: myId },
       ],
+      deletedBy: { $nin: [myId] },
     })
       .populate("senderId", "fullName profilePic username")
-      .populate("readBy.userId", "fullName");
+      .populate("readBy.userId", "fullName")
+      .populate("reactions.userId", "fullName");
 
     res.status(200).json(messages);
   } catch (error) {
@@ -55,6 +57,7 @@ export const sendMessage = async (req, res) => {
       receiverId,
       text,
       image: imageUrl,
+      messageType: imageUrl ? "image" : "text",
       readBy: [{ userId: senderId }],
     });
 
@@ -152,11 +155,103 @@ export const getUnreadCount = async (req, res) => {
     const unreadCount = await Message.countDocuments({
       receiverId: userId,
       isRead: false,
+      deletedBy: { $nin: [userId] },
     });
 
     res.status(200).json({ unreadCount });
   } catch (error) {
     console.error("Error in getUnreadCount:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// Get unread counts per chat partner
+export const getUnreadByChat = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const unreadMessages = await Message.find({
+      receiverId: userId,
+      isRead: false,
+      groupChatId: { $exists: false },
+    }).select("senderId");
+
+    const counts = {};
+    unreadMessages.forEach((msg) => {
+      const chatId = msg.senderId.toString();
+      counts[chatId] = (counts[chatId] || 0) + 1;
+    });
+
+    res.status(200).json({ counts });
+  } catch (error) {
+    console.error("Error in getUnreadByChat:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// Mark all messages in a DM chat as read
+export const markChatAsRead = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { id: partnerId } = req.params;
+
+    const unreadMessages = await Message.find({
+      senderId: partnerId,
+      receiverId: userId,
+      isRead: false,
+    });
+
+    for (const message of unreadMessages) {
+      const alreadyRead = message.readBy.some(
+        (read) => read.userId.toString() === userId.toString()
+      );
+      if (!alreadyRead) {
+        message.readBy.push({ userId, readAt: new Date() });
+      }
+      message.isRead = true;
+      message.readAt = new Date();
+      await message.save();
+    }
+
+    res.status(200).json({ message: "Chat marked as read", count: unreadMessages.length });
+  } catch (error) {
+    console.error("Error in markChatAsRead:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// Toggle reaction on a message
+export const toggleReaction = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const { emoji } = req.body;
+    const userId = req.user._id;
+
+    if (!emoji) {
+      return res.status(400).json({ message: "Emoji is required" });
+    }
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ message: "Message not found" });
+    }
+
+    const existingIndex = message.reactions.findIndex(
+      (r) => r.userId.toString() === userId.toString() && r.emoji === emoji
+    );
+
+    if (existingIndex >= 0) {
+      message.reactions.splice(existingIndex, 1);
+    } else {
+      message.reactions.push({ emoji, userId });
+    }
+
+    await message.save();
+    await message.populate("reactions.userId", "fullName");
+
+    res.status(200).json(message);
+  } catch (error) {
+    console.error("Error in toggleReaction:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };

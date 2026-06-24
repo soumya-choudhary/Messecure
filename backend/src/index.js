@@ -9,6 +9,7 @@ import messageRoutes from "./routes/message.route.js";
 import friendRoutes from "./routes/friend.route.js";
 import groupChatRoutes from "./routes/groupchat.route.js";
 import storyRoutes from "./routes/story.route.js";
+import auraRoutes from "./routes/aura.route.js";
 import { connectDB } from "./lib/db.js";
 import { ENV } from "./lib/env.js";
 import { app, server } from "./lib/socket.js";
@@ -34,6 +35,7 @@ app.use("/api/messages", messageRoutes);
 app.use("/api/friends", friendRoutes);
 app.use("/api/groups", groupChatRoutes);
 app.use("/api/stories", storyRoutes);
+app.use("/api/aura", auraRoutes);
 
 // // make ready for deployment
 // if (ENV.NODE_ENV === "production") {

@@ -96,7 +96,8 @@ export const getGroupChatDetails = async (req, res) => {
 // Add member to group
 export const addMemberToGroup = async (req, res) => {
   try {
-    const { groupId, memberId } = req.body;
+    const { groupId } = req.params;
+    const { memberId } = req.body;
     const userId = req.user._id;
 
     const groupChat = await GroupChat.findById(groupId);
@@ -143,7 +144,8 @@ export const addMemberToGroup = async (req, res) => {
 // Remove member from group
 export const removeMemberFromGroup = async (req, res) => {
   try {
-    const { groupId, memberId } = req.body;
+    const { groupId } = req.params;
+    const { memberId } = req.body;
     const userId = req.user._id;
 
     const groupChat = await GroupChat.findById(groupId);
@@ -241,6 +243,7 @@ export const getGroupMessages = async (req, res) => {
     })
       .populate("senderId", "fullName profilePic username")
       .populate("readBy.userId", "fullName")
+      .populate("reactions.userId", "fullName")
       .sort({ createdAt: 1 });
 
     res.status(200).json(messages);
@@ -268,6 +271,7 @@ export const sendGroupMessage = async (req, res) => {
       groupChatId: groupId,
       text,
       image: imageUrl,
+      messageType: imageUrl ? "image" : "text",
       readBy: [{ userId: senderId }],
     });
 

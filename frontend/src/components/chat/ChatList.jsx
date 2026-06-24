@@ -1,29 +1,43 @@
 import { useEffect, useState } from 'react';
-import { Search, Edit3, Plus, MessageCircle } from 'lucide-react';
+import { Search, Plus, MessageCircle, Users } from 'lucide-react';
 import useChatStore from '../../store/chatStore';
 import api from '../../lib/api';
-import { formatDistanceToNow } from 'date-fns';
+import Avatar from './Avatar';
 
-const ChatList = ({ onEditFolders, onSearchUsers }) => {
-  const { chatPartners, groups, selectedChat, setSelectedChat, folders } = useChatStore();
+const ChatList = ({ onSearchUsers, onCreateGroup, showOnMobile }) => {
+  const {
+    chatPartners,
+    groups,
+    selectedChat,
+    setSelectedChat,
+    unreadByChat,
+    setUnreadByChat,
+    activeView,
+  } = useChatStore();
+
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFolder, setActiveFolder] = useState('all');
-  const [unreadCounts, setUnreadCounts] = useState({});
 
-  // Fetch unread counts
+  const fetchUnread = async () => {
+    try {
+      const res = await api.get('/messages/unread/by-chat');
+      setUnreadByChat(res.data.counts || {});
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
-    const fetchUnreadCounts = async () => {
-      try {
-        const response = await api.get('/messages/unread/count');
-        setUnreadCounts({ total: response.data.unreadCount });
-      } catch (error) {
-        console.error('Error fetching unread counts:', error);
-      }
-    };
-    fetchUnreadCounts();
-  }, []);
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30000);
+    return () => clearInterval(interval);
+  }, [chatPartners]);
 
-  // Combine chats for display
+  useEffect(() => {
+    if (selectedChat?.type === 'user') {
+      fetchUnread();
+    }
+  }, [selectedChat?.id]);
+
   const allChats = [
     ...chatPartners.map((partner) => ({
       type: 'user',
@@ -31,160 +45,125 @@ const ChatList = ({ onEditFolders, onSearchUsers }) => {
       name: partner.fullName,
       username: partner.username,
       avatar: partner.profilePic,
-      lastMessage: 'Tap to start chatting',
-      timestamp: new Date(),
-      unread: 0,
+      lastMessage: 'Tap to chat',
+      timestamp: partner.updatedAt || new Date(),
+      unread: unreadByChat[partner._id] || 0,
     })),
     ...groups.map((group) => ({
       type: 'group',
       id: group._id,
       name: group.name,
       avatar: group.groupPic,
+      members: group.members,
       lastMessage: group.lastMessage?.text || 'No messages yet',
       timestamp: group.updatedAt || new Date(),
       unread: 0,
     })),
   ];
 
-  // Filter chats based on search
-  const filteredChats = allChats.filter((chat) =>
-    chat.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredChats = allChats
+    .filter((chat) => chat.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-  // Sort by timestamp
-  const sortedChats = [...filteredChats].sort(
-    (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
-  );
+  const displayList = activeView === 'groups' ? filteredChats.filter((c) => c.type === 'group') : filteredChats;
 
   const handleChatClick = (chat) => {
     setSelectedChat(chat);
+    if (chat.type === 'user' && chat.unread > 0) {
+      useChatStore.getState().clearUnreadForChat(chat.id);
+    }
   };
 
   return (
-    <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
-      {/* Header */}
-      <div className="p-4 border-b border-gray-200">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-gray-900">Chats</h2>
-          <div className="flex items-center space-x-2">
+    <div
+      className={`w-full md:w-[360px] lg:w-[400px] bg-white border-r border-[#e9edef] flex flex-col flex-shrink-0 ${
+        showOnMobile ? 'flex' : selectedChat ? 'hidden md:flex' : 'flex'
+      }`}
+    >
+      <div className="h-[60px] px-4 flex items-center justify-between bg-[#f0f2f5] border-b border-[#e9edef]">
+        <h2 className="text-lg font-medium text-[#111b21]">
+          {activeView === 'groups' ? 'Groups' : 'Chats'}
+        </h2>
+        <div className="flex items-center gap-1">
+          {activeView === 'groups' ? (
             <button
-              onClick={onEditFolders}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              title="Edit Folders"
+              onClick={onCreateGroup}
+              className="p-2 hover:bg-[#e9edef] rounded-full"
+              title="Create group"
             >
-              <Edit3 className="w-5 h-5 text-gray-600" />
+              <Plus className="w-5 h-5 text-[#54656f]" />
             </button>
-          </div>
-        </div>
-
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search chats..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-          />
-        </div>
-
-        {/* Search Users Button */}
-        <button
-          onClick={onSearchUsers}
-          className="mt-3 w-full px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all text-sm font-medium flex items-center justify-center space-x-2"
-        >
-          <Search className="w-4 h-4" />
-          <span>Search Users</span>
-        </button>
-
-        {/* Folders */}
-        <div className="flex space-x-2 mt-4 overflow-x-auto">
-          {folders.map((folder) => (
+          ) : (
             <button
-              key={folder.id}
-              onClick={() => setActiveFolder(folder.id)}
-              className={`px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${
-                activeFolder === folder.id
-                  ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+              onClick={onSearchUsers}
+              className="p-2 hover:bg-[#e9edef] rounded-full"
+              title="Find users"
             >
-              <span className="mr-2">{folder.icon}</span>
-              {folder.name}
-              {folder.id === 'unread' && unreadCounts.total > 0 && (
-                <span className="ml-2 bg-white/20 px-2 py-0.5 rounded-full text-xs">
-                  {unreadCounts.total}
-                </span>
-              )}
+              <Users className="w-5 h-5 text-[#54656f]" />
             </button>
-          ))}
+          )}
         </div>
       </div>
 
-      {/* Chat List */}
+      <div className="px-3 py-2 bg-white border-b border-[#e9edef]">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8696a0]" />
+          <input
+            type="text"
+            placeholder={activeView === 'groups' ? 'Search groups...' : 'Search or start new chat'}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => activeView !== 'groups' && searchQuery.length === 0 && onSearchUsers?.()}
+            className="w-full pl-10 pr-4 py-2 bg-[#f0f2f5] rounded-lg text-sm text-[#111b21] placeholder-[#8696a0] focus:outline-none"
+          />
+        </div>
+      </div>
+
       <div className="flex-1 overflow-y-auto">
-        {sortedChats.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-gray-400 p-8">
-            <MessageCircle className="w-16 h-16 mb-4 opacity-50" />
-            <p className="text-center">
-              {searchQuery ? 'No chats found' : 'No chats yet. Start a new conversation!'}
+        {displayList.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-[#667781] p-8">
+            <MessageCircle className="w-14 h-14 mb-3 opacity-40" />
+            <p className="text-center text-sm">
+              {searchQuery
+                ? 'No results found'
+                : activeView === 'groups'
+                  ? 'No groups yet. Create one!'
+                  : 'No chats yet. Search for users to start.'}
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-100">
-            {sortedChats.map((chat) => (
-              <div
-                key={`${chat.type}-${chat.id}`}
-                onClick={() => handleChatClick(chat)}
-                className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
-                  selectedChat?.id === chat.id && selectedChat?.type === chat.type
-                    ? 'bg-blue-50 border-l-4 border-blue-500'
-                    : ''
-                }`}
-              >
-                <div className="flex items-center space-x-3">
-                  {/* Avatar */}
-                  <div className="relative flex-shrink-0">
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold overflow-hidden">
-                      {chat.avatar ? (
-                        <img
-                          src={chat.avatar}
-                          alt={chat.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        chat.name.charAt(0).toUpperCase()
-                      )}
-                    </div>
-                    {chat.type === 'user' && (
-                      <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
-                    )}
-                  </div>
-
-                  {/* Chat Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <h3 className="text-sm font-semibold text-gray-900 truncate">
-                        {chat.name}
-                      </h3>
-                      <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
-                        {formatDistanceToNow(new Date(chat.timestamp), { addSuffix: true })}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-500 truncate">{chat.lastMessage}</p>
-                  </div>
-
-                  {/* Unread Badge */}
+          displayList.map((chat) => (
+            <button
+              key={`${chat.type}-${chat.id}`}
+              onClick={() => handleChatClick(chat)}
+              className={`w-full px-3 py-3 flex items-center gap-3 hover:bg-[#f5f6f6] transition-colors text-left ${
+                selectedChat?.id === chat.id && selectedChat?.type === chat.type
+                  ? 'bg-[#f0f2f5]'
+                  : ''
+              }`}
+            >
+              <Avatar src={chat.avatar} name={chat.name} size="lg" />
+              <div className="flex-1 min-w-0 border-b border-[#f0f2f5] pb-3">
+                <div className="flex items-center justify-between mb-0.5">
+                  <h3 className="text-[15px] font-normal text-[#111b21] truncate">{chat.name}</h3>
+                  <span className="text-[11px] text-[#667781] flex-shrink-0 ml-2">
+                    {new Date(chat.timestamp).toLocaleDateString([], {
+                      month: 'short',
+                      day: 'numeric',
+                    })}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-[#667781] truncate">{chat.lastMessage}</p>
                   {chat.unread > 0 && (
-                    <div className="flex-shrink-0 w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-semibold">
-                      {chat.unread > 9 ? '9+' : chat.unread}
-                    </div>
+                    <span className="ml-2 flex-shrink-0 min-w-[20px] h-5 px-1.5 bg-[#25d366] text-white text-xs font-medium rounded-full flex items-center justify-center">
+                      {chat.unread > 99 ? '99+' : chat.unread}
+                    </span>
                   )}
                 </div>
               </div>
-            ))}
-          </div>
+            </button>
+          ))
         )}
       </div>
     </div>
@@ -192,4 +171,3 @@ const ChatList = ({ onEditFolders, onSearchUsers }) => {
 };
 
 export default ChatList;
-

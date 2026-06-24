@@ -1,111 +1,97 @@
-import { useState } from 'react';
-import { Menu, X, User, LogOut, Settings, Users, MessageSquare, Image } from 'lucide-react';
+import { Menu, X, LogOut, Settings, MessageSquare, Users, Image, Sparkles } from 'lucide-react';
+import useChatStore from '../../store/chatStore';
+import Avatar from './Avatar';
 
-const Sidebar = ({ user, onToggleSidebar, sidebarOpen, onProfileClick, onLogout }) => {
-  const [activeItem, setActiveItem] = useState('chats');
+const Sidebar = ({
+  user,
+  onToggleSidebar,
+  sidebarOpen,
+  onProfileClick,
+  onLogout,
+  onSettingsClick,
+}) => {
+  const { activeView, setActiveView, setSelectedChat } = useChatStore();
 
   const menuItems = [
-    { id: 'chats', label: 'All Chats', icon: MessageSquare },
-    { id: 'friends', label: 'Friends', icon: Users },
+    { id: 'chats', label: 'Chats', icon: MessageSquare },
     { id: 'groups', label: 'Groups', icon: Users },
     { id: 'stories', label: 'Stories', icon: Image },
+    { id: 'aura', label: 'Aura AI', icon: Sparkles },
   ];
+
+  const handleNav = (id) => {
+    setActiveView(id);
+    setSelectedChat(null);
+    onToggleSidebar?.();
+  };
 
   return (
     <>
-      {/* Mobile Menu Button */}
       <button
         onClick={onToggleSidebar}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
+        className="lg:hidden fixed top-3 left-3 z-50 p-2 bg-[#f0f2f5] rounded-full shadow-md"
       >
-        {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        {sidebarOpen ? <X className="w-5 h-5 text-[#54656f]" /> : <Menu className="w-5 h-5 text-[#54656f]" />}
       </button>
 
-      {/* Sidebar */}
       <div
-        className={`fixed lg:static inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out ${
+        className={`fixed lg:static inset-y-0 left-0 z-40 w-[68px] bg-[#f0f2f5] border-r border-[#e9edef] transform transition-transform duration-200 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        <div className="flex flex-col h-full">
-          {/* User Profile Section */}
-          <div className="p-4 border-b border-gray-200">
-            <div
-              onClick={onProfileClick}
-              className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 rounded-lg p-2 -m-2 transition-colors"
-            >
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-lg shadow-lg">
-                {user?.profilePic ? (
-                  <img
-                    src={user.profilePic}
-                    alt={user.fullName}
-                    className="w-full h-full rounded-full object-cover"
-                  />
-                ) : (
-                  user?.fullName?.charAt(0).toUpperCase() || 'U'
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 truncate">
-                  {user?.fullName || 'User'}
-                </p>
-                <p className="text-xs text-gray-500 truncate">@{user?.username || 'username'}</p>
-              </div>
-            </div>
-          </div>
+        <div className="flex flex-col h-full items-center py-3">
+          <button
+            onClick={onProfileClick}
+            className="mb-4 p-1 rounded-full hover:ring-2 hover:ring-[#00a884] transition-all"
+            title="Profile"
+          >
+            <Avatar src={user?.profilePic} name={user?.fullName} size="md" />
+          </button>
 
-          {/* Menu Items */}
-          <nav className="flex-1 overflow-y-auto p-4 space-y-2">
+          <nav className="flex-1 flex flex-col items-center gap-1 w-full px-2">
             {menuItems.map((item) => {
               const Icon = item.icon;
+              const active = activeView === item.id;
               return (
                 <button
                   key={item.id}
-                  onClick={() => setActiveItem(item.id)}
-                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors ${
-                    activeItem === item.id
-                      ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg'
-                      : 'text-gray-700 hover:bg-gray-100'
+                  onClick={() => handleNav(item.id)}
+                  title={item.label}
+                  className={`w-full p-3 rounded-xl transition-colors flex flex-col items-center gap-0.5 ${
+                    active
+                      ? item.id === 'aura'
+                        ? 'bg-violet-100 text-violet-700'
+                        : 'bg-[#d9fdd3] text-[#008069]'
+                      : 'text-[#54656f] hover:bg-[#e9edef]'
                   }`}
                 >
                   <Icon className="w-5 h-5" />
-                  <span className="font-medium">{item.label}</span>
+                  <span className="text-[10px] font-medium hidden xl:block">{item.label}</span>
                 </button>
               );
             })}
           </nav>
 
-          {/* Bottom Section */}
-          <div className="p-4 border-t border-gray-200 space-y-2">
+          <div className="flex flex-col items-center gap-1 w-full px-2 pb-2">
             <button
-              onClick={onProfileClick}
-              className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-xl transition-colors"
+              onClick={onSettingsClick}
+              title="Settings"
+              className="w-full p-3 rounded-xl text-[#54656f] hover:bg-[#e9edef] transition-colors"
             >
-              <User className="w-5 h-5" />
-              <span className="font-medium">Profile</span>
-            </button>
-            <button
-              className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-xl transition-colors"
-            >
-              <Settings className="w-5 h-5" />
-              <span className="font-medium">Settings</span>
+              <Settings className="w-5 h-5 mx-auto" />
             </button>
             <button
               onClick={onLogout}
-              className="w-full flex items-center space-x-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+              title="Logout"
+              className="w-full p-3 rounded-xl text-red-500 hover:bg-red-50 transition-colors"
             >
-              <LogOut className="w-5 h-5" />
-              <span className="font-medium">Logout</span>
+              <LogOut className="w-5 h-5 mx-auto" />
             </button>
           </div>
         </div>
 
-        {/* Overlay for mobile */}
         {sidebarOpen && (
-          <div
-            className="lg:hidden fixed inset-0 bg-black/50 z-30 -mr-64"
-            onClick={onToggleSidebar}
-          />
+          <div className="lg:hidden fixed inset-0 bg-black/40 z-30" onClick={onToggleSidebar} />
         )}
       </div>
     </>
@@ -113,4 +99,3 @@ const Sidebar = ({ user, onToggleSidebar, sidebarOpen, onProfileClick, onLogout 
 };
 
 export default Sidebar;
-

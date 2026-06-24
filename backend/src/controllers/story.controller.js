@@ -64,10 +64,11 @@ export const getFriendStories = async (req, res) => {
     const userId = req.user._id;
 
     const user = await User.findById(userId);
+    const storyUserIds = [...user.friends, userId];
 
     const now = new Date();
     const stories = await Story.find({
-      userId: { $in: user.friends },
+      userId: { $in: storyUserIds },
       expiresAt: { $gt: now },
       isVisible: true,
     })
